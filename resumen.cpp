@@ -49,7 +49,7 @@ void copiarNumero(char* destino, int n, int minimoDigitos, int& pos) {
 int main() {
     int semana, mes;
 
-    cout << "=== RESUMEN DEL CIERRE ===" << endl;
+    cout << " RESUMEN DEL CIERRE " << endl;
     cout << "Numero de semana (sX): ";
     cin >> semana;
     cout << "Mes (mm): ";
