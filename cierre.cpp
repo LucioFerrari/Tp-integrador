@@ -12,6 +12,41 @@ struct Comanda {
 
 const char* TEMPORAL = "comandas_semana_tmp.dat";
 
+
+void copiarCadena(char* destino, const char* origen, int& pos) {
+    int i = 0;
+    while (origen[i] != '\0') {
+        destino[pos] = origen[i];
+        pos++;
+        i++;
+    }
+    destino[pos] = '\0';
+}
+
+
+void copiarNumero(char* destino, int n, int minimoDigitos, int& pos) {
+    char tmp[12];
+    int len = 0;
+    if (n == 0) {
+        tmp[len] = '0';
+        len++;
+    }
+    while (n > 0) {
+        tmp[len] = '0' + n % 10;       // ultimo digito (salen en orden inverso)
+        len++;
+        n = n / 10;
+    }
+    while (len < minimoDigitos) {
+        tmp[len] = '0';
+        len++;
+    }
+    for (int i = len - 1; i >= 0; i--) {   // los doy vuelta al copiar
+        destino[pos] = tmp[i];
+        pos++;
+    }
+    destino[pos] = '\0';
+}
+
 // Intercala A y B (ambos ordenados por idMozo) en C.
 // Si el idMozo es igual, sale primero el de A (el acumulado) -> estable.
 // Devuelve la cantidad de registros grabados en C.
@@ -59,6 +94,30 @@ int apareo(const char* nomA, const char* nomB, const char* nomC) {
     return total;
 }
 
+// Copia todos los registros de origen en destino (destino se vacia primero).
+// Devuelve la cantidad de registros copiados, o -1 si no pudo abrir algo.
+int copiarArchivo(const char* nomOrigen, const char* nomDestino) {
+    FILE* o = fopen(nomOrigen, "rb");
+    FILE* d = fopen(nomDestino, "wb");     // "wb" vacia el destino
+    if (o == NULL || d == NULL) {
+        cout << "Error abriendo archivos al copiar." << endl;
+        if (o) fclose(o);
+        if (d) fclose(d);
+        return -1;
+    }
+
+    Comanda r;
+    int total = 0;
+    while (fread(&r, sizeof(Comanda), 1, o) == 1) {
+        fwrite(&r, sizeof(Comanda), 1, d);
+        total++;
+    }
+
+    fclose(o);
+    fclose(d);
+    return total;
+}
+
 int main() {
     int semana, mes, cantDias;
 
@@ -69,7 +128,12 @@ int main() {
     cin >> mes;
 
     char nomSemanal[60];
-    sprintf(nomSemanal, "comandas_semana_s%d-%02d.dat", semana, mes);
+    int pos = 0;
+    copiarCadena(nomSemanal, "comandas_semana_s", pos);
+    copiarNumero(nomSemanal, semana, 1, pos);
+    copiarCadena(nomSemanal, "-", pos);
+    copiarNumero(nomSemanal, mes, 2, pos);
+    copiarCadena(nomSemanal, ".dat", pos);
 
     cout << "Cantidad de dias a juntar: ";
     cin >> cantDias;
@@ -92,7 +156,10 @@ int main() {
         cin >> fecha;
 
         char nomDia[60];
-        sprintf(nomDia, "comandas_%s.dat", fecha);
+        int posDia = 0;
+        copiarCadena(nomDia, "comandas_", posDia);
+        copiarCadena(nomDia, fecha, posDia);
+        copiarCadena(nomDia, ".dat", posDia);
 
         // Caso raro: dia sin planilla (no hubo ventas o no se cargo)
         FILE* test = fopen(nomDia, "rb");
@@ -103,14 +170,17 @@ int main() {
 
             int n = apareo(nomSemanal, nomDia, TEMPORAL);
             if (n < 0) {
-                remove(TEMPORAL);
                 cout << "  -> Error al unir " << nomDia << ", se omite." << endl;
             } else {
-                remove(nomSemanal);               // reemplazo la semanal por la nueva
-                rename(TEMPORAL, nomSemanal);
-                diasUnidos++;
-                ventasTotales = n;
-                cout << "  -> " << nomDia << " unido. Total acumulado: " << n << " ventas." << endl;
+                // paso el resultado del temporal a la semanal
+                int copiados = copiarArchivo(TEMPORAL, nomSemanal);
+                if (copiados < 0) {
+                    cout << "  -> Error al actualizar " << nomSemanal << "." << endl;
+                } else {
+                    diasUnidos++;
+                    ventasTotales = copiados;
+                    cout << "  -> " << nomDia << " unido. Total acumulado: " << copiados << " ventas." << endl;
+                }
             }
         }
     }
